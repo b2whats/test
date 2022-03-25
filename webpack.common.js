@@ -26,8 +26,9 @@ const config = {
     plugins: [
         new ModuleFederationPlugin({
             name: "host-app",
+            remoteType: 'var',
             remotes: {
-                testRemoteApp: "http://localhost:3002/remoteEntry.js",
+                testRemoteApp: "testRemoteApp@http://localhost:3002/remoteEntry.js",
             },
             shared: { react: { singleton: true }, "react-dom": { singleton: true } },
         }),

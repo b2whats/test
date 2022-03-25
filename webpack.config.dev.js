@@ -1,6 +1,5 @@
 const { merge } = require('webpack-merge')
 const { config } = require('./webpack.common')
-const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 
 module.exports = merge(config, {
     mode: 'development',
@@ -15,20 +14,4 @@ module.exports = merge(config, {
     optimization: {
         minimize: false,
     },
-    plugins: [
-        new ForkTsCheckerWebpackPlugin({
-            async: true,
-            typescript: {
-                mode: 'write-references',
-                configOverwrite: {
-                    incremental: true,
-                    noEmit: true,
-                },
-                diagnosticOptions: {
-                    semantic: true,
-                    syntactic: true,
-                }
-            }
-        }),
-    ]
 })
