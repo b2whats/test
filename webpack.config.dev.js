@@ -7,9 +7,8 @@ module.exports = merge(config, {
     devServer: {
         historyApiFallback: true,
         open: true,
-        compress: true,
         hot: true,
-        port: 8080,
+        port: 3000,
     },
     optimization: {
         minimize: false,

@@ -2,6 +2,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { ModuleFederationPlugin } = require("webpack").container;
 const path = require('path');
+const { dependencies } = require('./package.json');
 
 const paths = {
     src: path.resolve(__dirname, 'src'),
@@ -25,12 +26,24 @@ const config = {
 
     plugins: [
         new ModuleFederationPlugin({
-            name: "host-app",
+            name: "hostApp",
             remoteType: 'var',
             remotes: {
-                testRemoteApp: "testRemoteApp@http://localhost:3002/remoteEntry.js",
+                testRemoteApp: "testRemoteApp",
             },
-            shared: { react: { singleton: true }, "react-dom": { singleton: true } },
+            shared: {
+                ...dependencies,
+                react: {
+                    singleton: true,
+                    eager: true,
+                    requiredVersion: dependencies.react
+                },
+                "react-dom": {
+                    singleton: true,
+                    eager: true,
+                    requiredVersion: dependencies['react-dom']
+                }
+            },
         }),
 
         new CopyWebpackPlugin({
