@@ -8,7 +8,10 @@ module.exports = merge(config, {
         historyApiFallback: true,
         open: true,
         hot: true,
-        port: 3000,
+        port: 3001,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+        },
     },
     optimization: {
         minimize: false,

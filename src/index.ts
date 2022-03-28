@@ -1,2 +1,3 @@
-// @ts-ignore
-import("./bootstrap");
+import('./view/index')
+
+export {}
