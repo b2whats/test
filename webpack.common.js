@@ -1,35 +1,23 @@
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const { ModuleFederationPlugin } = require("webpack").container;
-const path = require('path');
-const { dependencies } = require('./package.json');
-
-const paths = {
-    src: path.resolve(__dirname, 'src'),
-    build: path.resolve(__dirname, 'dist'),
-    public: path.resolve(__dirname, 'public'),
-}
+const CopyWebpackPlugin = require('copy-webpack-plugin')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const { ModuleFederationPlugin } = require('webpack').container
+const { dependencies } = require('./package.json')
 
 const config = {
-    entry: [
-        path.resolve(__dirname, `${paths.src}/index.ts`)
-    ],
+    entry: './src/index.ts',
 
     output: {
-        publicPath: '/',
-        path: paths.build,
-        filename: '[name].bundle.js',
-        chunkFilename: '[name].chunk.js',
-        assetModuleFilename: '[name].[hash][ext]',
+        publicPath: 'auto',
         clean: true,
     },
 
     plugins: [
         new ModuleFederationPlugin({
-            name: "hostApp",
+            name: 'host',
+            filename: 'remoteEntry.js',
             remoteType: 'var',
             remotes: {
-                testRemoteApp: "testRemoteApp",
+                testRemoteApp: 'testRemoteApp',
             },
             shared: {
                 ...dependencies,
@@ -38,48 +26,52 @@ const config = {
                     eager: true,
                     requiredVersion: dependencies.react
                 },
-                "react-dom": {
+                'react-dom': {
                     singleton: true,
                     eager: true,
                     requiredVersion: dependencies['react-dom']
                 }
             },
         }),
-
         new CopyWebpackPlugin({
             patterns: [
                 {
-                    from: paths.public,
+                    from: 'public',
                     to: 'assets',
                     globOptions: {
-                        ignore: ['*.DS_Store'],
+                        gitignore: true,
+                        ignore: ['**/index.html'],
                     },
                     noErrorOnMissing: true,
                 },
             ],
         }),
-
         new HtmlWebpackPlugin({
-            inject: true,
-            template: path.resolve(`${paths.public}/index.html`),
+            template: 'public/index.html'
         }),
     ],
 
     module: {
         rules: [
-            { test: /\.(t|j)sx?$/, use: ['babel-loader'] },
+            {
+                test: /\.(t|j)sx?$/,
+                loader: 'esbuild-loader',
+                exclude: /node_modules/,
+                options: {
+                    loader: 'tsx',
+                    target: 'es2015'
+                }
+            },
             { test: /\.(?:ico|gif|png|jpg|jpeg)$/i, type: 'asset/resource' },
             { test: /\.(woff(2)?|eot|ttf|otf|svg|)$/, type: 'asset/inline' },
         ],
     },
 
     resolve: {
-        modules: [paths.src, 'node_modules'],
         extensions: ['.ts', '.js', '.tsx', '.json'],
     },
 }
 
 module.exports = {
-    config,
-    paths
+    config
 }
