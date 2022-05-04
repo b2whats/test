@@ -21,7 +21,14 @@ module.exports = {
     'import',
   ],
   rules: {
+    indent: ['error', 2, {
+      'SwitchCase': 1
+    }],
     quotes: ['error', 'single'],
-    semi: ['error', 'never'],
+    semi: 'off',
+    '@typescript-eslint/semi': ['error', 'never'],
+    '@typescript-eslint/member-delimiter-style': ['error', {
+      'multiline': { 'delimiter': 'none', 'requireLast': true }
+    }],
   },
 }
