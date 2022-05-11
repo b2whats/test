@@ -2,10 +2,12 @@ import React, { useState, useEffect, Suspense } from 'react'
 import localforage from 'localforage'
 import { sendUpdateMfStore } from '../worker/changeVersion'
 import { TTLCache } from '../shared/services/cache/TTLCache'
+import * as C from '../shared/services/cache/WebStorageCache.1'
 import { CacheManager } from '../shared/services/cache/'
 
-(window as any).TTLCache = TTLCache;
-(window as any).CacheManager = CacheManager
+(window as any).WS = C.WebStorageCacheSingle;
+(window as any).WM = C.WebStorageCacheMultiple;
+(window as any).FT = C.featureToggle
 
 const store = localforage.createInstance({
   name: 'mf'

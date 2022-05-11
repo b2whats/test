@@ -1,5 +1,6 @@
 import { isObject } from '@shared/utils/is'
 import { Observable } from '@shared/emitter/Observable'
+import { ObservableMap } from '@shared/emitter/ObservableMap'
 import { WebStorageCache } from '@shared/services/cache/WebStorageCache.1'
 
 export type Feature<T = string> = {
@@ -114,6 +115,45 @@ export class FeatureToggleService1<T extends string> extends Observable<Record<T
   }
 }
 
+export class FeatureToggleService3<V = unknown> extends ObservableMap<string, V> {
+  constructor(private name: string, private storage: Storage) {
+    super()
+    this.recoverStorage()
+    super.subscribe(this.onChange)
+    window.addEventListener('storage', this.subscriberOnStorage)
+  }
+
+  private subscriberOnStorage = (event: StorageEvent) => {
+    if (event.storageArea !== this.storage) return
+    if (!(event.key === null || event.key === this.name)) return
+    if (event.key !== null && event.oldValue === event.newValue) return
+
+    super.unsubscribe(this.onChange)
+
+    switch (storageEventType(event)) {
+      case 'set': super.fromString(event.newValue!); break
+      case 'delete':
+      case 'clear': super.clear(); break
+    }
+
+    super.subscribe(this.onChange)
+  }
+
+  private recoverStorage() {
+    const data = this.storage.getItem(this.name)
+
+    if (data) super.fromString(data)
+  }
+
+  private onChange = (event: MapEvent): void => {
+    switch (event.type) {
+      case 'set':
+      case 'delete': this.storage.setItem(this.name, super.toString()); break
+      case 'clear': this.storage.removeItem(this.name); break
+    }
+  }
+}
+
 export const featureToggle = new FeatureToggleService([
   {
     name: 'test-on',
@@ -136,3 +176,12 @@ featureToggle.has('test-on')
 const a = featureToggle.subscribe((arg) => {})
 
 
+abstract class A {
+  abstract test(): any
+}
+
+
+
+class B implements A {
+
+}

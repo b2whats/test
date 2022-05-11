@@ -1,8 +1,6 @@
-import { Observable, ObservableCallback } from './Observable'
-import { isPropertyKeys } from '../utils/is'
+import { Observable, Observer } from './Observable'
 
 type SetEvent<K, V> = {
-  object: ObservableMap<K, V>
   key: K
   type: 'set'
   oldValue: V | undefined
@@ -10,22 +8,21 @@ type SetEvent<K, V> = {
 }
 
 type DeleteEvent<K, V> = {
-  object: ObservableMap<K, V>
   key: K
   type: 'delete'
   oldValue: V | undefined
 }
 
-type ClearEvent<K, V> = {
-  object: ObservableMap<K, V>
+type ClearEvent<K> = {
+  keys: K[]
   type: 'clear'
 }
 
-export type MapEvent<K = any, V = any> = SetEvent<K, V> | DeleteEvent<K, V> | ClearEvent<K, V>
+export type MapEvent<K = any, V = any> = SetEvent<K, V> | DeleteEvent<K, V> | ClearEvent<K>
 
 export interface ObservableMap<K, V> {
   get<Value = V>(key: K): Value | undefined
-  toJSON(): K extends string ? Record<string, V>  : never
+  get(key: K): V | undefined
 }
 
 export class ObservableMap<K = any, V = any> extends Map<K, V> {
@@ -39,93 +36,88 @@ export class ObservableMap<K = any, V = any> extends Map<K, V> {
     switch (type) {
       case 'set': return {
         type: 'set',
-        object: this,
         key: key!,
         value: value!,
         oldValue: super.get(key!),
       }
       case 'delete': return {
         type: 'delete',
-        object: this,
         key: key!,
         oldValue: super.get(key!),
       }
       case 'clear': return {
+        keys: Array.from(this.keys()),
         type: 'clear',
-        object: this,
       }
     }
   }
 
   set(key: K, value: V) {
-    this.subject.emit(this.createEvent('set', key, value))
-    
+    if (value === super.get(key)) return this
+
+    const event = this.createEvent('set', key, value)
     super.set(key, value)
+    this.subject.emit(event)
     
     return this
   }
 
   delete(key: K) {
-    this.subject.emit(this.createEvent('delete', key))
+    if (!super.has(key)) return false
 
-    return super.delete(key)
-  }
-
-  clear() {
-    this.subject.emit(this.createEvent('clear'))
-
-    super.clear()
-  }
-
-  toJSON(): K extends string ? Record<string, V>  : never {
-    const keys = Array.from(super.keys())
-
-    if (isPropertyKeys(keys)) {
-      console.error('Keys must be string or number')
-      return {}
-    }
-
-    const result = {} as Record<string, V>
-    super.forEach((value, key) => result[key as any] = value)
+    const event = this.createEvent('delete', key)
+    const result =  super.delete(key)
+    this.subject.emit(event)
 
     return result
   }
 
-  toString() {
-    return JSON.stringify(this.toJSON())
+  clear() {
+    if (this.size === 0) return
+
+    const event = this.createEvent('clear')
+    super.clear()
+    this.subject.emit(event)
   }
 
-  subscribe(fn: ObservableCallback<[MapEvent<K, V>]>) {
+  toJSON() {
+    return Array.from(super.entries())
+  }
+
+  toString() {
+    return JSON.stringify(this)
+  }
+
+  fromString(data: string) {
+    if (data.trim() === '') return this.clear()
+
+    const entries: [K, V][] = JSON.parse(data)
+
+    if (!Array.isArray(entries)) return
+    
+    this.merge(new Map(entries))
+  }
+
+  merge(newMap: Map<K, V>) {
+    super.forEach((_, key) => {
+      if (newMap.has(key)) {
+        this.set(key, newMap.get(key)!)
+        newMap.delete(key)
+      } else {
+        this.delete(key)
+      }
+    })
+
+    newMap.forEach((value, key) => {
+      this.set(key, value)
+    })
+  }
+
+  subscribe(fn: Observer<[MapEvent<K, V>]>) {
     return this.subject.subscribe(fn)
   }
 
-  unsubscribe(fn: ObservableCallback<[MapEvent<K, V>]>) {
+  unsubscribe(fn: Observer<[MapEvent<K, V>]>) {
     this.subject.unsubscribe(fn)
   }
 }
-
-
-export const ObservableMap_: {
-  new<K extends string, V>(): ObservableMap<K, V>
-  new<K, V>(): Omit<ObservableMap<K, V>, 'toJSON'>
-  readonly prototype: Omit<ObservableMap, never>
-} = ObservableMap as any
-
-const aa = new ObservableMap_<string, any>()
-aa.toJSON()
-const bb = new ObservableMap_<Function, any>()
-JSON.stringify(bb.toJSON())
-
-class ON<K extends string> extends ObservableMap_<number, any> {
-  constructor() {
-    super()
-  }
-}
-
-const a = new ObservableMap<string, string>()
-a.subscribe((event) => {
-  if (event.type === 'set') event
-  if (event.type === 'delete') event
-  if (event.type === 'clear') event
-})
-a.toJSON()

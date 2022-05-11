@@ -1,68 +1,43 @@
-export class EventEmitter<Events extends Record<string, (...args: any) => any>> {
-  private events = {} as Record<keyof Events, Set<(...args: any) => any>>
+export class EventEmitter<Events extends Record<string, (...args: any) => void>> {
+  private events = new Map<keyof Events, Set<Function>>()
 
   on<T extends keyof Events>(name: T, fn: Events[T]) {
-    this.events[name] = (this.events[name] || new Set()).add(fn)
+    this.events.get(name)?.add(fn) ?? this.events.set(name, new Set([fn]))
 
     return this
   }
 
   once<T extends keyof Events>(name: T, fn: Events[T]) {
-    const callback: any = (...parms: any) => {
+    const callback: any = (...args: any) => {
       this.off(name, callback)
-      fn(...parms)
+      fn(...args)
     }
     
     return this.on(name, callback)
   }
 
   off<T extends keyof Events>(name: T, fn: Events[T]) {
-    const handlers = this.events[name]
-    if (!handlers) return this
-    
-    handlers.delete(fn)
-
-    if (handlers.size === 0) {
-      delete this.events[name]
-    }
-
-    return this
+    this.events.get(name)?.delete(fn)
   }
 
   emit<T extends keyof Events>(name: T, ...args: Parameters<Events[T]>) {
-    const handlers = this.events[name]
-
-    if (!handlers) return this
-
-    handlers.forEach((fn) => fn(...args))
-
-    return this
+    this.events.get(name)?.forEach((fn) => fn(...args))
   }
 
   listeners(name?: keyof Events) {
-    if (name !== undefined) {
-      const handlers = this.events[name]
+    if (name !== undefined) return Array.from(this.events.get(name) || [])
 
-      return !handlers ? [] : Array.from(handlers)
-    }
-
-    let result = {}
-    for (const [event, handlers] of Object.entries(this.events)) {
-      result[event] = Array.from(handlers || [])
-    }
+    let result = {} as Record<keyof Events, Function[]>
+    this.events.forEach((value, key) => (result[key] = Array.from(value)))
 
     return result
   }
 
   clear(name?: keyof Events) {
-    if (name !== undefined) {
-      this.events[name]?.clear()
-
-      return this
-    }
-
-    this.events = {} as any
-    
-    return this
+    if (name !== undefined) this.events.get(name)?.clear()
+    else this.events.clear()
   }
 }
+
+const test = new EventEmitter()
+test.emit('', 1)

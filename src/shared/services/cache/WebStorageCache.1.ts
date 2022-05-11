@@ -118,37 +118,47 @@ export class WebStorageCache1<V = unknown> implements Cache<string, V> {
   }
 }
 
-export class WebStorageCache<V = unknown> extends ObservableMap<string, V> {
+
+const storageEventType = (event: StorageEvent)  => {
+  if (event.key === null) return 'clear'
+  else if (event.newValue === null) return 'delete'
+  else return 'set'
+}
+const safeJsonParse = (data: any) => {
+  let value = data
+  try {
+    value = JSON.parse(value)
+  } catch (error) {}
+
+  return value
+}
+export class WebStorageCacheMultiple<V = unknown> extends ObservableMap<string, V> {
   private prefix: string
 
-  constructor(name: string, private storage: WebStorage) {
+  constructor(prefix: string, private storage: WebStorage) {
     super()
-    this.prefix = name + '-'
+    this.prefix = prefix + '-'
     this.recoverStorage()
-    this.subscribe(this.onChange)
-    this.subscribeWithStorageEvent()
+    super.subscribe(this.onChange)
+    window.addEventListener('storage', this.subscriberOnStorage)
   }
 
-  private subscribeWithStorageEvent() {
-    window.addEventListener('storage', (event) => {
-      if (event.storageArea !== this.storage) return
+  private subscriberOnStorage = (event: StorageEvent) => {
+    if (event.storageArea !== this.storage) return
+    if (!(event.key === null || event.key.startsWith(this.prefix))) return
+    if (event.key !== null && event.oldValue === event.newValue) return
 
-      if (event.key === null || event.key.startsWith(this.prefix)) {
-        this.unsubscribe(this.onChange)
-        if (event.key === null) {
-          super.clear()
-        } else if (event.newValue === null) {
-          super.delete(event.key)
-        } else {
-          try {
-            super.set(event.key, JSON.parse(event.newValue))
-          } catch (error) {
-            console.error(error)
-          }
-        }
-        this.subscribe(this.onChange)
-      }
-    })
+    super.unsubscribe(this.onChange)
+
+    const key = event.key?.substring(this.prefix.length)
+
+    switch (storageEventType(event)) {
+      case 'set': super.set(key!, safeJsonParse(event.newValue)); break
+      case 'delete': super.delete(key!); break
+      case 'clear': super.clear(); break
+    }
+
+    super.subscribe(this.onChange)
   }
 
   private recoverStorage() {
@@ -157,36 +167,130 @@ export class WebStorageCache<V = unknown> extends ObservableMap<string, V> {
   
       if (storageKey?.startsWith(this.prefix)) {
         const key = storageKey.substring(this.prefix.length)
-        const value = this.storage.getItem(storageKey)!
+        let value = this.storage.getItem(storageKey)!
 
-        super.set(key, JSON.parse(value))
+        super.set(key, safeJsonParse(value))
       }
     }
   }
 
   private onChange = (event: MapEvent): void => {
     switch (event.type) {
-      case 'set': {
-        this.storage.setItem(this.prefix + event.key, JSON.stringify(event.value))
-        return
-      }
-      case 'delete': {
-        this.storage.removeItem(this.prefix + event.key)
-        return
-      }
-      case 'clear': {
-        super.forEach((_, key) => this.storage.removeItem(this.prefix + key))
-        return
-      }
+      case 'set': this.storage.setItem(this.prefix + event.key, JSON.stringify(event.value)); break
+      case 'delete': this.storage.removeItem(this.prefix + event.key); break
+      case 'clear': event.keys.forEach((key) => this.storage.removeItem(this.prefix + key)); break
+    }
+  }
+}
+export class WebStorageCacheSingle<V = unknown> extends ObservableMap<string, V> {
+  constructor(private name: string, private storage: WebStorage) {
+    super()
+    this.recoverStorage()
+    super.subscribe(this.onChange)
+    window.addEventListener('storage', this.subscriberOnStorage)
+  }
+
+  private subscriberOnStorage = (event: StorageEvent) => {
+    if (event.storageArea !== this.storage) return
+    if (!(event.key === null || event.key === this.name)) return
+    if (event.key !== null && event.oldValue === event.newValue) return
+
+    super.unsubscribe(this.onChange)
+
+    switch (storageEventType(event)) {
+      case 'set': super.fromString(event.newValue!); break
+      case 'delete':
+      case 'clear': super.clear(); break
+    }
+
+    super.subscribe(this.onChange)
+  }
+
+  private recoverStorage() {
+    const data = this.storage.getItem(this.name)
+
+    if (data) super.fromString(data)
+  }
+
+  private onChange = (event: MapEvent): void => {
+    switch (event.type) {
+      case 'set':
+      case 'delete': this.storage.setItem(this.name, super.toString()); break
+      case 'clear': this.storage.removeItem(this.name); break
     }
   }
 }
 
-(window as any).S = WebStorageCache
+export type Feature<T = string> = {
+  name: T
+  active: boolean
+  description?: string
+}
+
+export class FeatureToggleService<T extends string> extends WebStorageCacheSingle<boolean>{
+  private localMap = new Map<T, boolean>()
+  constructor(private featureList: Feature<T>[]) {
+    super('featureToggle', window.localStorage)
+
+    featureList.forEach(feature => {
+      this.localMap.set(feature.name, feature.active)
+      Object.defineProperty(feature, 'active', {
+        get: () => this.get(feature.name)
+      })
+    })
+  }
+
+  get(featureName: T) {
+    return !!(super.get(featureName) ?? this.localMap.get(featureName))
+  }
+
+  get list() {
+    return this.featureList
+  }
+
+  toggle(featureName: T): void {
+    const value = !this.get(featureName)
+    super.set(featureName, value)
+  }
+}
+
+type FeatureKeys = Parameters<(typeof featureToggle)['get']>[0]
+
+export const useFeatures = (keys:  FeatureKeys | FeatureKeys[]) => {
+  const forceUpdate = useReducer(() => ({}), {})[1]
+  const features = useContext(FeatureTogglesContext)
+
+  useEffect(() => {
+    const list = ([] as any).concat(keys)
+
+    const unsubscribe = features.subscribe((event) => {
+      if (event.type === 'clear' || list.includes(event.key)) forceUpdate()
+    })
+
+    return () => unsubscribe
+  }, [])
+
+  return features
+}
 
 
-const a = new WebStorageCache1({ name: ''})
-const qq = a.get('dd')
+export const featureToggle = new FeatureToggleService([
+  {
+    name: 'test-on',
+    active: true,
+    description: 'Тестовый фича тогл, по умолчанию включен'
+  },
+  {
+    name: 'MESSENGER_SIGNUP',
+    active: false,
+    description: 'Тестовый фича тогл, по умолчанию выключен'
+  },
+  {
+    name: 'MESSENGER_PAYMENTS',
+    active: false,
+    description: 'Тестовый фича тогл, по умолчанию выключен'
+  },
+])
 
-const aa = new WebStorageCache('a', localStorage)
-aa.get<string>('qq')
+featureToggle.get('test-on')
+const a = featureToggle.subscribe((arg) => {})
