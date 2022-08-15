@@ -20,3 +20,5 @@ export const featureToggle = new FeatureToggleService([
 ], window.localStorage)
 
 export const useFeatureToggle = createHook(featureToggle)
+
+const a = useFeatureToggle('test-on') 

@@ -11,10 +11,12 @@ type Tuple<T, L extends number> =
   L extends 0 ? [] :
   never
 
-export const createHook = <T extends string>(service: FeatureToggleService<T>) => <K extends T[]>(...keys: K): Tuple<boolean, K['length']> => {
+export const createHook = <T extends string>(service: FeatureToggleService<T>) => <K extends T[]>(...keys: K): K['length'] extends 1 ? boolean : Tuple<boolean, K['length']> => {
   const forceUpdate = useReducer(() => ({}), {})[1]
 
   useEffect(() => service.subscribe(forceUpdate, keys), [])
 
-  return keys.map(key => service.get(key)) as any
+  return keys.length === 1
+    ? service.get(keys[0])
+    : keys.map(key => service.get(key)) as any
 }
