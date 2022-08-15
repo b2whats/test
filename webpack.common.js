@@ -9,7 +9,7 @@ const config = {
   entry: {
     main: './src/index.ts',
     sw: {
-      import: './src/worker/service-worker',
+      import: './src/view/worker/service-worker',
       filename: 'service-worker.js',
       chunkLoading: 'import-scripts',
     }

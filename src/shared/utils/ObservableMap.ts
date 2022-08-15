@@ -1,4 +1,4 @@
-import { Observable, Observer } from './Observable'
+import { Observable } from './Observable'
 
 type SetEvent<K, V> = {
   key: K
@@ -14,25 +14,32 @@ type DeleteEvent<K, V> = {
 }
 
 type ClearEvent<K> = {
-  keys: K[]
+  keys: Set<K>
   type: 'clear'
 }
 
-export type MapEvent<K = any, V = any> = SetEvent<K, V> | DeleteEvent<K, V> | ClearEvent<K>
+type EventFunction<K, V> = {
+  (event: ObservableMapEvent<K, V>): void
+  comparator?: (event: ObservableMapEvent<K, V>) => boolean
+}
+
+export type ObservableMapEvent<K = any, V = any> = SetEvent<K, V> | DeleteEvent<K, V> | ClearEvent<K>
 
 export interface ObservableMap<K, V> {
   get<Value = V>(key: K): Value | undefined
   get(key: K): V | undefined
+  set(key: K, value: V): this
+  set(key: K, value: V, ...args: any[]): this
 }
 
 export class ObservableMap<K = any, V = any> extends Map<K, V> {
-  private subject = new Observable<MapEvent<K, V>>()
+  private subject = new Observable<ObservableMapEvent<K, V>>()
 
   constructor(entries?: [K, V][] | null) {
     super(entries)
   }
 
-  createEvent(type: MapEvent['type'], key?: K, value?: V): MapEvent<K, V> {
+  createEvent(type: ObservableMapEvent['type'], key?: K, value?: V): ObservableMapEvent<K, V> {
     switch (type) {
       case 'set': return {
         type: 'set',
@@ -46,13 +53,13 @@ export class ObservableMap<K = any, V = any> extends Map<K, V> {
         oldValue: super.get(key!),
       }
       case 'clear': return {
-        keys: Array.from(this.keys()),
+        keys: new Set(this.keys()),
         type: 'clear',
       }
     }
   }
 
-  set(key: K, value: V) {
+  set(key: K, value: V): this {
     if (value === super.get(key)) return this
 
     const event = this.createEvent('set', key, value)
@@ -98,7 +105,7 @@ export class ObservableMap<K = any, V = any> extends Map<K, V> {
     this.merge(new Map(entries))
   }
 
-  merge(newMap: Map<K, V>) {
+  private merge(newMap: Map<K, V>) {
     super.forEach((_, key) => {
       if (newMap.has(key)) {
         this.set(key, newMap.get(key)!)
@@ -113,11 +120,51 @@ export class ObservableMap<K = any, V = any> extends Map<K, V> {
     })
   }
 
-  subscribe(fn: Observer<[MapEvent<K, V>]>) {
+  subscribe(fn: EventFunction<K, V>, deps?: K[]) {
+    if (deps) {
+      fn.comparator = (event) => event.type === 'clear'
+        ? deps.some(key => event.keys.has(key))
+        : deps.includes(event.key)
+    }
     return this.subject.subscribe(fn)
   }
 
-  unsubscribe(fn: Observer<[MapEvent<K, V>]>) {
+  unsubscribe(fn: (event: ObservableMapEvent<K, V>) => void) {
     this.subject.unsubscribe(fn)
+  }
+
+  track(fn: EventFunction<K, V>) {
+    const deps: K[] = []
+    console.log('track')
+
+    return {
+      get: (name: K) => {
+        if (!deps.includes(name)) deps.push(name)
+        
+        console.log('get', deps, super.get(name))
+        return super.get(name)
+      },
+      unsubscribe: this.subscribe(fn, deps),
+      reset: () => {
+        deps.length = 0
+        console.log('reset', deps)
+      }
+    }
+  }
+}
+
+export class Tracker<K, V> {
+  private track: Set<K> = new Set()
+
+  constructor(private observable: ObservableMap<K, V>, private observer: EventFunction<K, V>) {}
+
+  get(name: K) {
+    if (!this.track.has(name)) {
+      this.track.add(name)
+      this.observable.unsubscribe(this.observer)
+      this.observable.subscribe(this.observer, Array.from(this.track))
+    }
+
+    return this.observable.get(name)
   }
 }

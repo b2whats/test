@@ -1,6 +1,7 @@
 import localforage from 'localforage'
 import { replaceHtml } from './changeVersion'
-import { isHTMLfile, isEmptyObject } from './utils'
+import { isHTMLfile } from './utils'
+import { isEmptyObject } from '@shared/utils/is'
 
 declare const self: ServiceWorkerGlobalScope
 
@@ -46,5 +47,3 @@ self.addEventListener('fetch', function (event) {
   }
 
 })
-
-export type {}

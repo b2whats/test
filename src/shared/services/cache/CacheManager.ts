@@ -1,15 +1,14 @@
 import { Result, ok, err, ValueObject, Entity } from '@shared/core/'
 import { isNumber, isString } from '@shared/utils/is'
 import { TTLCache, Times } from './TTLCache'
-import { WebStorageCache, StorageType } from './WebStorageCache'
-import * as C from './WebStorageCache.1'
+import { WebStorageCache, StorageType } from './WebStorageCache2'
+import * as C from './WebStorageCache'
 
 console.log(C)
 
 type CacheOptions = {
   name: string
   defaultTTL?: Times
-  toDomain?: Record<string, ValueObject<any> | Entity<any>>
 }
 
 type QueryOptions = {

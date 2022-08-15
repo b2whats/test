@@ -1,13 +1,11 @@
-import React, { useState, useEffect, Suspense } from 'react'
+import React, { useState, useEffect, useLayoutEffect, Suspense } from 'react'
 import localforage from 'localforage'
-import { sendUpdateMfStore } from '../worker/changeVersion'
+import { sendUpdateMfStore } from './worker/changeVersion'
 import { TTLCache } from '../shared/services/cache/TTLCache'
-import * as C from '../shared/services/cache/WebStorageCache.1'
-import { CacheManager } from '../shared/services/cache/'
+import { useFeatureToggle, featureToggle } from '../shared/services/featureToggle'
 
-(window as any).WS = C.WebStorageCacheSingle;
-(window as any).WM = C.WebStorageCacheMultiple;
-(window as any).FT = C.featureToggle
+
+
 
 const store = localforage.createInstance({
   name: 'mf'
@@ -16,6 +14,31 @@ const store = localforage.createInstance({
 const RemoteApp = React.lazy(() => import('@rb-mf/web-wlb-remote/App'))
 
 type TestChildComponentProps = {
+}
+
+let ii = 0
+
+const Feature = () => {
+  const FeatureToggle = useFeatureToggle()
+  const [s, us] = useState(true)
+  const aa = FeatureToggle('test-on')
+  useEffect(() => {
+    console.log('effect start')
+
+    return () => {
+      console.log('effect end')
+    }
+  })
+
+  console.log('ren', ii++, aa)
+  return (
+    <div>
+      <div>{aa + ''}</div>
+      <input type="checkbox" name='test-on' checked={aa} onChange={() => featureToggle.toggle('test-on')}/>
+      <input type="checkbox" name='MESSENGER_SIGNUP' checked={featureToggle.get('MESSENGER_SIGNUP')} onChange={() => featureToggle.toggle('MESSENGER_SIGNUP')}/>
+      <button type='button' onClick={() => us(ss => !ss)}>{s + ''}</button>
+    </div>
+  )
 }
 
 export const TestChildComponent = (props: TestChildComponentProps) => {
@@ -100,10 +123,11 @@ export const App = () => {
     <div>
       <h1>Hello World!</h1>
       <TestChildComponent />
+      <Feature />
 
-      <Suspense fallback={'loading...'}>
+      {/* <Suspense fallback={'loading...'}>
         <RemoteApp />
-      </Suspense>
+      </Suspense> */}
     </div>
   )
 }

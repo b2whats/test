@@ -3,9 +3,3 @@ export type Token = {
   refresh: string
   lastLogin: Date
 }
-
-declare global {
-  interface AppEvents {
-    id2: string
-  }
-}

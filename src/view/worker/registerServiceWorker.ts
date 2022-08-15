@@ -1,5 +1,3 @@
-import localforage from 'localforage'
-
 export const registerServiceWorker = async () => {
   if (typeof document === 'undefined' ) return
 

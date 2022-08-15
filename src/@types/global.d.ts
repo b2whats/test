@@ -27,3 +27,7 @@ declare namespace myLib {
   
   export const myMap: TypedMap<{}>
 }
+
+declare module '' {
+  
+}

@@ -1,120 +1,121 @@
+import { ObservableMap, ObservableMapEvent } from '../../utils/ObservableMap'
 import type { Cache } from './Cache'
 
 type KnownKeys<T> = {
   [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K]
 }
-export type StorageType = 'local' | 'session'
 type WebStorage = KnownKeys<Storage>
 
-type Options<Type> = {
-  name: string
-  type?: Type
+const storageEventType = (event: StorageEvent)  => {
+  if (event.key === null) return 'clear'
+  else if (event.newValue === null) return 'delete'
+  else return 'set'
 }
 
-export class WebStorageCache<V = unknown> implements Cache<string, V> {
-  private prefix: string
-  private storageType: StorageType
-  protected local: WebStorage
-  protected session: WebStorage
-  private keysStorageMap: Record<string, WebStorage> = {}
+const safeJsonParse = (data: any) => {
+  let value = data
+  try {
+    value = JSON.parse(value)
+  } catch (error) {}
 
-  constructor({ name , type = 'local' }: Options<StorageType>) {
-    this.prefix = name + '-'
-    this.storageType = type
-    this.local = window.localStorage
-    this.session = window.sessionStorage
-    this.recoverStorageKeys('session')
-    this.recoverStorageKeys('local')
+  return value
+}
+
+export class WebStorageCacheMultiple<V = unknown> extends ObservableMap<string, V> implements Cache {
+  private prefix: string
+
+  constructor(prefix: string, private storage: WebStorage) {
+    super()
+    this.prefix = prefix + '-'
+    this.recoverStorage()
+    super.subscribe(this.onChange)
+    window.addEventListener('storage', this.subscriberOnStorage)
   }
 
-  private recoverStorageKeys(type: StorageType) {
-    for (let i = 0; i < this[type].length; i++) {
-      const storageKey = this[type].key(i)
+  private subscriberOnStorage = (event: StorageEvent) => {
+    if (event.storageArea !== this.storage) return
+    if (!(event.key === null || event.key.startsWith(this.prefix))) return
+    if (event.key !== null && event.oldValue === event.newValue) return
+
+    super.unsubscribe(this.onChange)
+
+    const key = event.key?.substring(this.prefix.length)
+
+    switch (storageEventType(event)) {
+      case 'set': super.set(key!, safeJsonParse(event.newValue)); break
+      case 'delete': super.delete(key!); break
+      case 'clear': super.clear(); break
+    }
+
+    super.subscribe(this.onChange)
+  }
+
+  private recoverStorage() {
+    for (let i = 0; i < this.storage.length; i++) {
+      const storageKey = this.storage.key(i)
   
       if (storageKey?.startsWith(this.prefix)) {
-        this.keysStorageMap[storageKey] = this[type]
+        const key = storageKey.substring(this.prefix.length)
+        let value = this.storage.getItem(storageKey)!
+
+        super.set(key, safeJsonParse(value))
       }
     }
   }
 
-  apply(method: 'get' | 'set' | '') {
-
-  }
-
-  get<Value extends V = V>(key: string): Value | undefined {
-    const storageKey = this.prefix + key
-    const storage = this.keysStorageMap[storageKey]
-
-    if (!storage) return undefined
-
-    const value = storage.getItem(storageKey)
-    return value === null ? undefined : JSON.parse(value)
-  }
-
-  getAll() {
-    const result: Record<string, V> = {}
-
-    this.forEach((key, value) => {
-      result[key] = value
-    })
-
-    return result
-  }
-
-  set(key: string, value: any, storageType: StorageType = this.storageType) {
-    const storageKey = this.prefix + key
-    const storage = this.keysStorageMap[storageKey] = this[storageType]
-    storage.setItem(storageKey, JSON.stringify(value))
-
-    return this
-  }
-
-  has(key: string) {
-    const storageKey = this.prefix + key
-    const storage = this.keysStorageMap[storageKey]
-
-    return storage ? !!storage.getItem(storageKey) : false
-  }
-
-  delete(key: string) {
-    const storageKey = this.prefix + key
-    const storage = this.keysStorageMap[storageKey]
-
-    if (!storage) return
-
-    delete this.keysStorageMap[storageKey]
-
-    return storage.removeItem(storageKey)
-  }
-
-  forEach(cb: (key: string, value: V) => void) {
-    for (const storageKey in this.keysStorageMap) {
-      const key = storageKey.substring(this.prefix.length)
-      const value = this.get(key)!
-
-      cb(key, value)
+  private onChange = (event: ObservableMapEvent): void => {
+    switch (event.type) {
+      case 'set': this.storage.setItem(this.prefix + event.key, JSON.stringify(event.value)); break
+      case 'delete': this.storage.removeItem(this.prefix + event.key); break
+      case 'clear': event.keys.forEach((key) => this.storage.removeItem(this.prefix + key)); break
     }
-  }
-
-  clear() {
-    for (const storageKey in this.keysStorageMap) {
-      const storage = this.keysStorageMap[storageKey]
-
-      storage.removeItem(storageKey)
-    }
-  }
-
-  get size() {
-    let count = 0
-
-    for (const _ in this.keysStorageMap) {
-      count++
-    }
-    
-    return count
   }
 }
 
+export class WebStorageCacheSingle<V = unknown> extends ObservableMap<string, V> implements Cache {
+  constructor(private name: string, private storage: WebStorage) {
+    super()
+    this.recoverStorage()
+    super.subscribe(this.onChange)
+    window.addEventListener('storage', this.subscriberOnStorage)
+  }
 
-const a = new WebStorageCache({ name: ''})
-const qq = a.get('dd')
+  private subscriberOnStorage = (event: StorageEvent) => {
+    if (event.storageArea !== this.storage) return
+    if (!(event.key === null || event.key === this.name)) return
+    if (event.key !== null && event.oldValue === event.newValue) return
+
+    super.unsubscribe(this.onChange)
+
+    switch (storageEventType(event)) {
+      case 'set': super.fromString(event.newValue!); break
+      case 'delete':
+      case 'clear': super.clear(); break
+    }
+
+    super.subscribe(this.onChange)
+  }
+
+  private recoverStorage() {
+    const data = this.storage.getItem(this.name)
+
+    if (data) super.fromString(data)
+  }
+
+  private onChange = (event: ObservableMapEvent): void => {
+    switch (event.type) {
+      case 'set':
+      case 'delete': this.storage.setItem(this.name, super.toString()); break
+      case 'clear': this.storage.removeItem(this.name); break
+    }
+  }
+}
+
+export function webStorageCreate(prefix: string, type: 'persistence' | 'session' = 'persistence', strategy: 'single' | 'multiple' = 'single') {
+  const storage = type === 'persistence' ? window.localStorage : window.sessionStorage
+
+  return strategy === 'single'
+    ? new WebStorageCacheSingle(prefix, storage)
+    : new WebStorageCacheMultiple(prefix, storage)
+
+}

@@ -11,13 +11,6 @@ export interface AuthService1 {
   logout(): Promise<void>
 }
 
-declare global {
-  interface AppEvents {
-    id: number
-  }
-}
-
-
 export class SSOService extends CacheManager implements AuthService {
   constructor() {
     super({ name: 'sso' })
