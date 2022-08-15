@@ -135,19 +135,16 @@ export class ObservableMap<K = any, V = any> extends Map<K, V> {
 
   track(fn: EventFunction<K, V>) {
     const deps: K[] = []
-    console.log('track')
 
     return {
       get: (name: K) => {
         if (!deps.includes(name)) deps.push(name)
         
-        console.log('get', deps, super.get(name))
         return super.get(name)
       },
       unsubscribe: this.subscribe(fn, deps),
       reset: () => {
         deps.length = 0
-        console.log('reset', deps)
       }
     }
   }

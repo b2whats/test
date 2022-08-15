@@ -1,12 +1,20 @@
-import { useReducer, useEffect, useState } from 'react'
+import { useReducer, useEffect } from 'react'
 import type { FeatureToggleService } from './FeatureToggleService'
 
-export const createHook = <T extends string>(service: FeatureToggleService<T>) => () => {
+type Tuple<T, L extends number> = 
+  L extends 6 ? [T, T, T, T, T, T] :
+  L extends 5 ? [T, T, T, T, T] :
+  L extends 4 ? [T, T, T, T] :
+  L extends 3 ? [T, T, T] :
+  L extends 2 ? [T, T] :
+  L extends 1 ? [T] :
+  L extends 0 ? [] :
+  never
+
+export const createHook = <T extends string>(service: FeatureToggleService<T>) => <K extends T[]>(...keys: K): Tuple<boolean, K['length']> => {
   const forceUpdate = useReducer(() => ({}), {})[1]
-  const tracker = useState(() => service.track(forceUpdate))[0]
-  tracker.reset()
 
-  useEffect(() => () => tracker.unsubscribe(), [])
+  useEffect(() => service.subscribe(forceUpdate, keys), [])
 
-  return tracker.get
+  return keys.map(key => service.get(key)) as any
 }
