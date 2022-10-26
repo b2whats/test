@@ -1,7 +1,7 @@
 import { Result, ok, err, ValueObject, Entity } from '@shared/core/'
 import { isNumber, isString } from '@shared/utils/is'
 import { TTLCache, Times } from './TTLCache'
-import { WebStorageCache, StorageType } from './WebStorageCache2'
+import { WebStorageCache, StorageType } from './WebStorageCache'
 import * as C from './WebStorageCache'
 
 console.log(C)
@@ -22,7 +22,7 @@ export class CacheManager {
   private keysStorageMap: Record<string, TTLCache | WebStorageCache> = {}
 
   constructor(options: CacheOptions) {
-    this.memory = new TTLCache({ ttl: options.defaultTTL })
+    this.memory = new TTLCache(options.defaultTTL)
     this.persistance = new WebStorageCache({ name: options.name })
   }
 

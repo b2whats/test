@@ -19,49 +19,14 @@ type TestChildComponentProps = {
 let ii = 0
 
 const Feature = () => {
-  const toggle = useFeatureToggle()
-
-
-
-  const [isAEnabled, isBEnabled] = useFeatureToggle(['a', 'b'])
-
-if (isAEnabled) {
-
-}
-
-if (toggle('a')) {
-
-}
-
-
-
-  const aa = toggle('test-on')
-  const bb = toggle('test-on')
-  
-
-
-
-
-
-
-
-  
+  const testOn = useFeatureToggle('test-on')
   const [s, us] = useState(true)
-  useEffect(() => {
-    console.log('effect start')
-
-    return () => {
-      console.log('effect end')
-    }
-  })
-
-  console.log('ren', ii++, aa)
+  console.log('render')
   return (
     <div>
-      <div>{aa + ''}</div>
-      {toggle('test-on') && <input type="checkbox" name='test-on' checked={toggle('test-on')} onChange={() => featureToggle.toggle('test-on')}/>
+      <input type="checkbox" name='test-on' checked={testOn} onChange={() => featureToggle.toggle('test-on')}/>
       <input type="checkbox" name='MESSENGER_SIGNUP' checked={featureToggle.get('MESSENGER_SIGNUP')} onChange={() => featureToggle.toggle('MESSENGER_SIGNUP')}/>
-      {toggle('test-on') && <button type='button' onClick={() => us(ss => !ss)}>{s + ''}</button>
+      <button type='button' onClick={() => us(ss => !ss)}>{s + ''}</button>
     </div>
   )
 }

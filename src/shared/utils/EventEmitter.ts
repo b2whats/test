@@ -22,7 +22,7 @@ export class EventEmitter<E extends Record<string, (...args: any) => void>> {
 
   emit<T extends keyof E, Args extends any[] = Parameters<E[T]>>(path: T & string, ...args: Args) {
     this.eventsTree.emit(path.split('.'), path, ...args)
-  }
+  }  
 }
 
 class NodeEvents {

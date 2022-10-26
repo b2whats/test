@@ -2,7 +2,6 @@ const { merge } = require('webpack-merge')
 const { config } = require('./webpack.common')
 const { ESBuildMinifyPlugin } = require('esbuild-loader')
 
-
 module.exports = merge(config, {
   mode: 'production',
   devtool: false,
@@ -22,6 +21,7 @@ module.exports = merge(config, {
     maxAssetSize: 512000,
   },
   stats: {
-    children: true
+    children: true,
+    errorDetails: true,
   }
 })
